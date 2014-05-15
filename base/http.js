@@ -10,6 +10,10 @@ $z.http = {
         },
         comet: {
             endline: '\n-[comet]-\n'
+        },
+        ajax: {
+            useAjaxReturn: true,
+            useJson: true
         }
     },
     /**
@@ -157,8 +161,8 @@ $z.http = {
 
         if (window.EventSource === undefined) {
             $z.err.new("EventSource is not supported");
+            // TODO 使用xhr模拟EventSource
         }
-
         var evts = new EventSource(opt.url);
         evts.onmessage = function (e) {
             opt.onChange(e.data);
@@ -172,13 +176,32 @@ $z.http = {
         };
     },
     //================================================ ajax请求部分
+    /**
+     * 设置ajax成功时,对返回内容的处理方式
+     *
+     * @param opt
+     *
+     * {
+     *      useAjaxReturn   : true | false,
+     *      useJson         : true | false
+     * }
+     *
+     */
+    setAajx: function(opt){
+        if(opt.useAjaxReturn !== undefined){
+             $z.http.constant.ajax.useAjaxReturn = opt.useAjaxReturn;
+        }
+        if(opt.useJson !== undefined){
+             $z.http.constant.ajax.useJson = opt.useJson;
+        }
+    },
     get: function (url, form, callback) {
         $z.http._ajax($z.http.constant.method.GET, url, form, callback);
     },
     post: function (url, form, callback) {
         $z.http._ajax($z.http.constant.method.POST, url, form, callback);
     },
-    _ajax: function(method, url, form, callback){
+    _ajax: function (method, url, form, callback) {
         if (typeof form === 'function') {
             callback = form;
             form = null;
@@ -188,23 +211,31 @@ $z.http = {
             url: url,
             data: form
         }).done(function (re) {
-             $z.http._ajaxDone(re, callback);
+            $z.http._ajaxDone(re, callback);
         }).fail($z.http._ajaxFail);
     },
     _ajaxDone: function (re, callback) {
-        if (typeof re === 'string') {
-            re = eval('(' + re + ')');
+        if ($z.http.constant.ajax.useJson) {
+            if (typeof re === 'string') {
+                re = $z.util.toJson(re);
+            } else {
+                $z.err.new("ajaxReturn is not a String, can't be use as JSON");
+            }
         }
-        if (re.ok) {
-            callback(re);
+        if ($z.http.constant.ajax.useAjaxReturn) {
+            if (re.ok) {
+                callback(re);
+            } else {
+                $z.http._ajaxErrorMsg(re);
+            }
         } else {
-            $z.http._ajaxErrorMsg(re);
+            callback(re);
         }
     },
     _ajaxFail: function (e) {
         alert('Ajax Error!\n' + e);
     },
     _ajaxErrorMsg: function (re) {
-       // TODO
+        // TODO 想想如何处理
     }
 };
