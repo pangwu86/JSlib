@@ -1,10 +1,8 @@
-$z.browser = {
-    /**
-     * 获得窗口大小
-     *
-     * @returns {*}
-     */
-    winsz: function () {
+(function ($z) {
+
+    var brow = $z.makePackage('browser');
+
+    brow.winsz = function () {
         if (window.innerWidth) {
             return {
                 width: window.innerWidth,
@@ -21,5 +19,7 @@ $z.browser = {
             width: document.body.clientWidth,
             height: document.body.clientHeight
         };
-    }
-};
+    };
+
+})($z);
+

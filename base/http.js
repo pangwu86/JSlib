@@ -1,5 +1,10 @@
-$z.http = {
-    constant: {
+// util
+// err
+(function ($z) {
+
+    var http = $z.makePackage("http");
+
+    http.constant = {
         method: {
             GET: 'GET',
             POST: 'POST'
@@ -15,13 +20,89 @@ $z.http = {
             useAjaxReturn: true,
             useJson: true
         }
-    },
+    };
+
+    //================================================ ajax请求部分
+
+    var _ajax, _ajaxDone, _ajaxFail, _ajaxErrorMsg;
+
+    _ajax = function (method, url, form, callback) {
+        if (typeof form === 'function') {
+            callback = form;
+            form = null;
+        }
+        $.ajax({
+            type: method,
+            url: url,
+            data: form
+        }).done(function (re) {
+            _ajaxDone(re, callback);
+        }).fail(_ajaxFail);
+    };
+
+    _ajaxDone = function (re, callback) {
+        if (http.constant.ajax.useJson) {
+            if (typeof re === 'string') {
+                re = $z.util.toJson(re);
+            } else {
+                $z.err.new("ajaxReturn is not a String, can't be use as JSON");
+            }
+        }
+        if (http.constant.ajax.useAjaxReturn) {
+            if (re.ok) {
+                callback(re);
+            } else {
+                _ajaxErrorMsg(re);
+            }
+        } else {
+            callback(re);
+        }
+    };
+
+    _ajaxFail = function (e) {
+        alert('Ajax Error!\n' + e);
+    };
+
+    _ajaxErrorMsg = function (re) {
+        // TODO 想想如何处理
+    };
+
+    /**
+     * 设置ajax成功时,对返回内容的处理方式
+     *
+     * @param opt
+     *
+     * {
+     *      useAjaxReturn   : true | false,
+     *      useJson         : true | false
+     * }
+     *
+     */
+    http.setAajx = function (opt) {
+        if (opt.useAjaxReturn !== undefined) {
+            http.constant.ajax.useAjaxReturn = opt.useAjaxReturn;
+        }
+        if (opt.useJson !== undefined) {
+            http.constant.ajax.useJson = opt.useJson;
+        }
+    };
+
+    http.get = function (url, form, callback) {
+        _ajax(http.constant.method.GET, url, form, callback);
+    };
+
+    http.post = function (url, form, callback) {
+        _ajax(http.constant.method.POST, url, form, callback);
+    };
+
+    //============================================= XMLHttpRequest
+
     /**
      * 生成一个新的XMLHttpRequest对象, 兼容IE
      *
      * @returns {XMLHttpRequest}
      */
-    xhr: function () {
+    http.xhr = function () {
         if (window.XMLHttpRequest === undefined) {
             window.XMLHttpRequest = function () {
                 // IE5和IE6不支持, 需要使用ActivieX对象进行构建
@@ -37,14 +118,16 @@ $z.http = {
             };
         }
         return new XMLHttpRequest();
-    },
-    //================================================ 长连接部分
+    };
+
+    //================================================ http长连接
+
     /**
      * 在进行长连接前, 对opt做对应的检查与处理
      *
      * @param opt
      */
-    beforeComet: function (opt) {
+    var _chkCometOpt = function (opt) {
         // 检查
         if ($z.util.isBlank(opt.url)) {
             $z.err.new("url is empty");
@@ -53,10 +136,10 @@ $z.http = {
             $z.err.new("onChange is not defined");
         }
         if ($z.util.isBlank(opt.contentType)) {
-            opt.contentType = $z.http.constant.contentType.form;
+            opt.contentType = http.constant.contentType.form;
         }
         if ($z.util.isBlank(opt.method)) {
-            opt.method = $z.http.constant.method.GET;
+            opt.method = http.constant.method.GET;
         }
         // 准备
         if (!$z.util.isEmpty(opt.data)) {
@@ -68,7 +151,7 @@ $z.http = {
             opt.urlparams = params.join('&');
         }
         opt.useEndline = (opt.endline != undefined);
-        opt.useGet = (opt.method.toUpperCase() == $z.http.constant.method.GET);
+        opt.useGet = (opt.method.toUpperCase() == http.constant.method.GET);
         if (opt.useGet) {
             opt.body = null;
             if (!$z.util.isBlank(opt.urlparams)) {
@@ -77,9 +160,10 @@ $z.http = {
         } else {
             opt.body = opt.urlparams;
         }
-    },
+    };
+
     /**
-     * 发送一个长连接
+     * 使用XHR发起一个长连接
      *
      * @param opt
      *
@@ -102,10 +186,10 @@ $z.http = {
      *  }
      *
      */
-    comet: function (opt) {
-        $z.http.beforeComet(opt);
+    http.comet = function (opt) {
+        _chkCometOpt(opt);
         // 发起连接
-        var xhr = $z.http.xhr();
+        var xhr = http.xhr();
         var respLength = 0;
         var respTmp = '';
         xhr.onreadystatechange = function (e) {
@@ -148,16 +232,17 @@ $z.http = {
         xhr.open(opt.useGet ? "GET" : "POST", opt.url);
         xhr.setRequestHeader('Content-type', opt.contentType);
         xhr.send(opt.body);
-    },
+    };
+
     /**
-     * 长连接, 需要一直连接, 断开后会自动重连
+     * 使用EventSource发起长连接
      *
      * @param opt
      */
-    cometES: function (opt) {
+    http.cometES = function (opt) {
         // 仅仅支持GET
-        opt.method = $z.http.constant.method.GET;
-        $z.http.beforeComet(opt);
+        opt.method = http.constant.method.GET;
+        _chkCometOpt(opt);
 
         if (window.EventSource === undefined) {
             $z.err.new("EventSource is not supported");
@@ -174,68 +259,16 @@ $z.http = {
                 $z.err.new("EventSource has err, maybe connect is break");
             }
         };
-    },
-    //================================================ ajax请求部分
+    };
+
     /**
-     * 设置ajax成功时,对返回内容的处理方式
+     * 使用WebSocket发起长连接
      *
      * @param opt
-     *
-     * {
-     *      useAjaxReturn   : true | false,
-     *      useJson         : true | false
-     * }
-     *
      */
-    setAajx: function(opt){
-        if(opt.useAjaxReturn !== undefined){
-             $z.http.constant.ajax.useAjaxReturn = opt.useAjaxReturn;
-        }
-        if(opt.useJson !== undefined){
-             $z.http.constant.ajax.useJson = opt.useJson;
-        }
-    },
-    get: function (url, form, callback) {
-        $z.http._ajax($z.http.constant.method.GET, url, form, callback);
-    },
-    post: function (url, form, callback) {
-        $z.http._ajax($z.http.constant.method.POST, url, form, callback);
-    },
-    _ajax: function (method, url, form, callback) {
-        if (typeof form === 'function') {
-            callback = form;
-            form = null;
-        }
-        $.ajax({
-            type: method,
-            url: url,
-            data: form
-        }).done(function (re) {
-            $z.http._ajaxDone(re, callback);
-        }).fail($z.http._ajaxFail);
-    },
-    _ajaxDone: function (re, callback) {
-        if ($z.http.constant.ajax.useJson) {
-            if (typeof re === 'string') {
-                re = $z.util.toJson(re);
-            } else {
-                $z.err.new("ajaxReturn is not a String, can't be use as JSON");
-            }
-        }
-        if ($z.http.constant.ajax.useAjaxReturn) {
-            if (re.ok) {
-                callback(re);
-            } else {
-                $z.http._ajaxErrorMsg(re);
-            }
-        } else {
-            callback(re);
-        }
-    },
-    _ajaxFail: function (e) {
-        alert('Ajax Error!\n' + e);
-    },
-    _ajaxErrorMsg: function (re) {
-        // TODO 想想如何处理
-    }
-};
+    http.cometWS = function (opt) {
+        // TODO
+        $z.err.noImpl();
+    };
+
+})($z);
