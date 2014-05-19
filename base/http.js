@@ -1,5 +1,6 @@
 // util
 // err
+// log
 (function ($z) {
 
     var http = $z.makePackage("http");
@@ -162,6 +163,15 @@
         }
     };
 
+    var _onChange = function (respTxt, opt) {
+        respTxt = $z.util.trim(respTxt);
+        if (!$z.util.isBlank(respTxt)) {
+            opt.onChange(respTxt);
+        } else {
+            $z.log.i("receive heartbeat..");
+        }
+    };
+
     /**
      * 使用XHR发起一个长连接
      *
@@ -209,10 +219,7 @@
                             respTxt = realRespTxt;
                         }
                     }
-                    respTxt = $z.util.trim(respTxt);
-                    if (respTxt.length > 0) {
-                        opt.onChange(respTxt);
-                    }
+                    _onChange(respTxt, opt);
                 }
             }
             if (xhr.readyState == 4) {
@@ -250,7 +257,8 @@
         }
         var evts = new EventSource(opt.url);
         evts.onmessage = function (e) {
-            opt.onChange(e.data);
+            var respTxt = e.data;
+            _onChange(respTxt, opt);
         };
         evts.onerror = function (e) {
             if (opt.onError) {
@@ -269,6 +277,25 @@
     http.cometWS = function (opt) {
         // TODO
         $z.err.noImpl();
+    };
+
+    // =============================================== 解析url
+
+    http.urlArgs = function () {
+        var args = {};
+        var query = location.search.substr(1);
+        var pairs = query.split('&');
+        for (var i = 0; i < pairs.length; i++) {
+            var pos = pairs[i].indexOf('=');
+            if (pos == -1) {
+                continue;
+            }
+            var name = pairs[i].substr(0, pos);
+            var value = pairs[i].substr(pos + 1);
+            value = decodeURIComponent(value);
+            args[name] = value;
+        }
+        return args;
     };
 
 })($z);
