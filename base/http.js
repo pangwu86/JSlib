@@ -44,7 +44,7 @@
     _ajaxDone = function (re, callback) {
         if (http.constant.ajax.useJson) {
             if (typeof re === 'string') {
-                re = $z.util.toJson(re);
+                re = $z.util.fromJson(re);
             } else {
                 $z.err.new("ajaxReturn is not a String, can't be use as JSON");
             }

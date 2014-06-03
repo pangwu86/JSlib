@@ -71,14 +71,22 @@
 
     // ====================================== json 转换
 
-    util.toJson = function (str) {
+    util.toJson = function (obj) {
+        return JSON.stringify(obj);
+    };
+
+    util.fromJson = function (str) {
         // eval的方法, 会执行里面的js代码, 比较有危险性, 可能会被注入
         // return eval("(" + str + ")");
         return JSON.parse(str);
     };
 
-    util.fromJson = function (obj) {
-        return JSON.stringify(obj);
+    util.json2str = function(json){
+        return util.toJson(json);
+    };
+
+    util.str2json = function(str){
+        return util.fromJson(str);
     };
 
 })(window);
